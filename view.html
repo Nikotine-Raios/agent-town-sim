@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rowan's town</title>
+    <style>
+      @font-face {
+        font-family: "Bricolage";
+        src: url("/fonts/BricolageGrotesque.woff2") format("woff2");
+        font-weight: 400 800;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      :root {
+        color-scheme: light;
+        --grass: #3f6d45;
+        --ink: #1c1712;
+        --paper: #f7f1e6;
+        --line: #d8cbb4;
+        --brass: #b8862b;
+      }
+
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #f3eee4;
+        color: var(--ink);
+        font: 16px/1.35 Bricolage, "Segoe UI", sans-serif;
+      }
+      ::selection { background: #e4c37a; color: var(--ink); }
+      :focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+
+      #app {
+        display: grid;
+        grid-template-columns: 1fr min(22rem, 34vw);
+        height: 100%;
+      }
+      #stage {
+        position: relative;
+        background: #2f5a36;
+        min-width: 0;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+      #dock {
+        display: flex;
+        flex-direction: column;
+        background: var(--paper);
+        border-left: 1px solid var(--line);
+        padding: 1.1rem 1.15rem 1rem;
+        min-width: 0;
+      }
+      #clock {
+        margin: 0 0 0.35rem;
+        font-size: clamp(1.4rem, 2vw, 1.85rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      #status {
+        margin: 0 0 1rem;
+        color: #5a4a36;
+      }
+      #dock nav {
+        display: grid;
+        gap: 0.55rem;
+      }
+      #dock button {
+        font: inherit;
+        font-weight: 700;
+        text-align: left;
+        padding: 0.85rem 0.95rem;
+        border: 1px solid var(--line);
+        background: #fffdf8;
+        color: var(--ink);
+        cursor: pointer;
+        box-shadow: 0 6px 0 var(--line);
+      }
+      #dock button.primary {
+        background: var(--ink);
+        color: var(--paper);
+        border-color: var(--ink);
+        box-shadow: 0 6px 0 #0d0a08;
+      }
+      #dock button:hover:not(:disabled) { transform: translateY(1px); box-shadow: 0 5px 0 var(--line); }
+      #dock button:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
+      #hint {
+        margin: 1rem 0 0;
+        min-height: 3.2rem;
+        color: #5a4a36;
+      }
+      #sheet, #billing {
+        margin-top: 1rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid var(--line);
+        overflow: auto;
+      }
+      #sheet[hidden], #billing[hidden] { display: none; }
+      #portrait {
+        width: 100%;
+        height: 10.5rem;
+        object-fit: contain;
+        object-position: top;
+        background: #ead7a8;
+      }
+      #portrait[src^="data:image/gif"] { display: none; }
+      #sheet h2, #billing h2 {
+        margin: 0;
+        font-size: 1.4rem;
+        letter-spacing: -0.03em;
+      }
+      .muted { margin: 0.35rem 0 0; color: #5a4a36; }
+      .swatches { display: flex; gap: 0.45rem; margin: 0.7rem 0 0; }
+      .swatch {
+        flex: 1;
+        min-height: 2.4rem;
+        border: 1px solid #6b4a28;
+        display: grid;
+        place-items: end start;
+        padding: 0.25rem 0.35rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+      #swatchMorale { background: #cfe8d4; }
+      #swatchRank { background: #ead7a8; }
+      .row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
+      #sheet button, #billing button {
+        font: inherit;
+        font-weight: 700;
+        border: 1px solid #6b4a28;
+        background: transparent;
+        color: var(--ink);
+        padding: 0.25rem 0.5rem;
+        cursor: pointer;
+      }
+      #billing ol { margin: 0.6rem 0 0; padding: 0; list-style: none; }
+      #billing li { padding: 0.55rem 0; border-top: 1px solid var(--line); font-weight: 650; }
+      #billing li span { display: block; color: #5a4a36; font-weight: 500; }
+
+      @media (max-width: 820px) {
+        #app { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+        #dock { border-left: 0; border-top: 1px solid var(--line); max-height: 42vh; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage">
+        <canvas id="world"></canvas>
+      </div>
+      <aside id="dock">
+        <p id="clock">Monday dawn</p>
+        <p id="status">Inside the village</p>
+        <nav>
+          <button class="primary" id="play" type="button">Play 3 days</button>
+          <button id="meet" type="button">Call meeting</button>
+          <button id="back" type="button">I'm back</button>
+          <button id="step" type="button">Step</button>
+        </nav>
+        <p id="hint">Click the path to walk. Click a person to talk.</p>
+        <section id="sheet" hidden>
+          <div class="row">
+            <h2 id="sheetName"></h2>
+            <button id="closeSheet" type="button">Close</button>
+          </div>
+          <img id="portrait" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />
+          <p class="muted" id="sheetRole"></p>
+          <div class="swatches">
+            <div class="swatch" id="swatchMorale">morale</div>
+            <div class="swatch" id="swatchRank">role</div>
+          </div>
+          <p id="sheetNote"></p>
+        </section>
+        <section id="billing" hidden>
+          <div class="row">
+            <h2 id="overlayTitle">Town hall</h2>
+            <button id="closeOverlay" type="button">Close</button>
+          </div>
+          <p class="muted" id="billingNote">In session</p>
+          <ol id="overlayBody"></ol>
+        </section>
+      </aside>
+    </div>
+    <script type="module" src="town.js?v=51"></script>
+    <script type="module">
+      const clock = document.querySelector("#clock");
+      const status = document.querySelector("#status");
+      const buttons = [...document.querySelectorAll("#dock nav button")];
+
+      function paint(state) {
+        clock.textContent = state.clock;
+        status.textContent = state.present ? "You are here" : "You are away";
+        window.townSync?.(state);
+      }
+
+      async function api(path, options) {
+        const response = await fetch(path, options);
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || body.reason || "Request failed");
+        return body.state || body;
+      }
+
+      function lock(on) {
+        for (const button of buttons) button.disabled = on;
+      }
+
+      document.querySelector("#play").addEventListener("click", async () => {
+        lock(true);
+        let state = await api("/api/reset", { method: "POST" });
+        paint(state);
+        for (let step = 0; step < 15; step += 1) {
+          state = await api("/api/tick", { method: "POST" });
+          paint(state);
+          await new Promise((resolve) => setTimeout(resolve, 420));
+        }
+        lock(false);
+      });
+
+      document.querySelector("#step").addEventListener("click", async () => {
+        paint(await api("/api/tick", { method: "POST" }));
+      });
+
+      document.querySelector("#back").addEventListener("click", async () => {
+        paint(await api("/api/return", { method: "POST" }));
+      });
+
+      window.townApprove = async (id) => {
+        paint(await api("/api/resolve", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, decision: "approve" }),
+        }));
+      };
+
+      (async () => {
+        try {
+          paint(await api("/api/state"));
+        } catch (error) {
+          clock.textContent = error.message;
+        }
+      })();
+    </script>
+  </body>
+</html>
